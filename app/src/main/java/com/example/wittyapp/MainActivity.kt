@@ -2,28 +2,32 @@ package com.example.wittyapp
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wittyapp.net.SpaceWeatherApi
 import com.example.wittyapp.ui.SpaceWeatherViewModel
-import com.example.wittyapp.ui.SpaceWeatherViewModelFactory
-import com.example.wittyapp.ui.settings.SettingsStore
+import com.example.wittyapp.ui.screens.*
+import com.example.wittyapp.ui.strings.AppLanguage
 import com.example.wittyapp.ui.strings.rememberAppStrings
-import com.example.wittyapp.ui.topbar.ModeToggleRuneButton
-import com.example.wittyapp.ui.screens.GraphSeries
-import com.example.wittyapp.ui.screens.GraphsMode
-import com.example.wittyapp.ui.screens.GraphsScreen
-import com.example.wittyapp.ui.screens.NowScreen
-import com.example.wittyapp.ui.screens.SunScreen
 import com.example.wittyapp.ui.theme.CosmosTheme
-import kotlin.math.max
-import kotlin.math.min
+import java.time.Instant
+
+private sealed class Screen {
+    data object Now : Screen()
+    data object Graphs : Screen()
+    data object Events : Screen()
+    data object Sun : Screen()
+    data object Settings : Screen()
+    data object Tutorial : Screen()
+    data class FullImage(val title: String, val url: String) : Screen()
+}
 
 class MainActivity : ComponentActivity() {
 
@@ -34,123 +38,169 @@ class MainActivity : ComponentActivity() {
             val api = remember { SpaceWeatherApi() }
             val vm: SpaceWeatherViewModel = viewModel(factory = SpaceWeatherViewModelFactory(api))
 
-            val settings = remember { SettingsStore(applicationContext) }
-            var mode by remember { mutableStateOf(AppMode.EARTH) }
-            var screen by remember { mutableStateOf<Screen>(Screen.Now) }
-
-            val language = remember { settings.getLanguage() }
+            // язык (позже можно хранить в DataStore, но сейчас просто держим в state)
+            var language by remember { mutableStateOf(AppLanguage.RU) }
             val strings = rememberAppStrings(language)
 
+            // режим Земля/Солнце
+            var mode by remember { mutableStateOf(AppMode.EARTH) }
+
+            // простая навигация без navigation-compose
+            val backStack = remember { mutableStateListOf<Screen>(Screen.Now) }
+            val current = backStack.last()
+
+            // двойной back для выхода
+            var lastBackAt by remember { mutableStateOf<Instant?>(null) }
+            var showExitSnack by remember { mutableStateOf(false) }
+
+            fun push(s: Screen) { backStack.add(s) }
+            fun pop(): Boolean {
+                return if (backStack.size > 1) {
+                    backStack.removeAt(backStack.lastIndex)
+                    true
+                } else false
+            }
+
+            BackHandler {
+                val popped = pop()
+                if (!popped) {
+                    val now = Instant.now()
+                    val last = lastBackAt
+                    if (last != null && now.epochSecond - last.epochSecond <= 2) {
+                        finish()
+                    } else {
+                        lastBackAt = now
+                        showExitSnack = true
+                    }
+                }
+            }
+
             CosmosTheme(mode = mode, auroraScore = vm.state.auroraScore) {
-                Scaffold(
-                    topBar = {
-                        TopAppBar(
-                            title = {
-                                Text(if (mode == AppMode.EARTH) strings.earth else strings.sun)
-                            },
-                            navigationIcon = {
-                                if (screen != Screen.Now) {
-                                    IconButton(onClick = { screen = Screen.Now }) {
-                                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
+
+                    val snackbarHostState = remember { SnackbarHostState() }
+                    LaunchedEffect(showExitSnack) {
+                        if (showExitSnack) {
+                            snackbarHostState.showSnackbar(strings.pressBackAgainToExit)
+                            showExitSnack = false
+                        }
+                    }
+
+                    Scaffold(
+                        snackbarHost = { SnackbarHost(snackbarHostState) },
+                        topBar = {
+                            TopAppBar(
+                                title = { Text(strings.appTitle) },
+                                actions = {
+                                    // Tutorial
+                                    IconButton(onClick = { push(Screen.Tutorial) }) {
+                                        Icon(Icons.Outlined.MenuBook, contentDescription = "Tutorial")
+                                    }
+
+                                    // Toggle Earth/Sun
+                                    ModeToggleRuneButton(
+                                        mode = mode,
+                                        onToggle = { mode = if (mode == AppMode.EARTH) AppMode.SUN else AppMode.EARTH }
+                                    )
+
+                                    // Settings
+                                    IconButton(onClick = { push(Screen.Settings) }) {
+                                        Icon(Icons.Outlined.Settings, contentDescription = "Settings")
                                     }
                                 }
-                            },
-                            actions = {
-                                ModeToggleRuneButton(
-                                    mode = mode,
-                                    onToggle = {
-                                        mode = if (mode == AppMode.EARTH) AppMode.SUN else AppMode.EARTH
-                                        screen = Screen.Now
-                                    }
+                            )
+                        },
+                        bottomBar = {
+                            NavigationBar {
+                                NavigationBarItem(
+                                    selected = current is Screen.Now,
+                                    onClick = { backStack.clear(); backStack.add(Screen.Now) },
+                                    icon = { Icon(Icons.Outlined.Home, null) },
+                                    label = { Text(strings.now) }
                                 )
-                            }
-                        )
-                    }
-                ) { padding ->
-
-                    when (mode) {
-                        AppMode.EARTH -> {
-                            when (screen) {
-                                Screen.Now -> NowScreen(
-                                    vm = vm,
-                                    mode = mode,
-                                    strings = strings,
-                                    contentPadding = padding,
-                                    onOpenGraphs = { screen = Screen.Graphs },
-                                    onOpenEvents = { /* пока не используем */ }
+                                NavigationBarItem(
+                                    selected = current is Screen.Graphs,
+                                    onClick = { backStack.clear(); backStack.add(Screen.Graphs) },
+                                    icon = { Icon(Icons.Outlined.ShowChart, null) },
+                                    label = { Text(strings.graphs) }
                                 )
-
-                                Screen.Graphs -> GraphsScreen(
-                                    title = strings.graphs,
-                                    series = buildGraphSeries(vm),
-                                    mode = GraphsMode.EARTH,
-                                    strings = strings,
-                                    onClose = { screen = Screen.Now }
+                                NavigationBarItem(
+                                    selected = current is Screen.Events,
+                                    onClick = { backStack.clear(); backStack.add(Screen.Events) },
+                                    icon = { Icon(Icons.Outlined.Notifications, null) },
+                                    label = { Text(strings.events) }
+                                )
+                                NavigationBarItem(
+                                    selected = current is Screen.Sun,
+                                    onClick = { backStack.clear(); backStack.add(Screen.Sun) },
+                                    icon = { Icon(Icons.Outlined.WbSunny, null) },
+                                    label = { Text(strings.sun) }
                                 )
                             }
                         }
+                    ) { padding ->
+                        val contentPadding = PaddingValues(
+                            start = 0.dp,
+                            end = 0.dp,
+                            top = padding.calculateTopPadding(),
+                            bottom = padding.calculateBottomPadding()
+                        )
 
-                        AppMode.SUN -> {
-                            // солнце отдельно — пока без графиков/ивентов
-                            SunScreen(contentPadding = padding)
+                        when (val s = current) {
+                            is Screen.Now -> NowScreen(
+                                vm = vm,
+                                mode = mode,
+                                strings = strings,
+                                contentPadding = contentPadding,
+                                onOpenGraphs = { push(Screen.Graphs) },
+                                onOpenEvents = { push(Screen.Events) }
+                            )
+
+                            is Screen.Graphs -> {
+                                val series = build24hSeries(vm, strings)
+                                GraphsScreen(
+                                    title = strings.graphs24hTitle,
+                                    series = series,
+                                    strings = strings,
+                                    onClose = { pop() }
+                                )
+                            }
+
+                            is Screen.Events -> EventsScreen(
+                                strings = strings,
+                                contentPadding = contentPadding
+                            )
+
+                            is Screen.Sun -> SunScreen(
+                                strings = strings,
+                                contentPadding = contentPadding,
+                                onOpenFull = { title, url -> push(Screen.FullImage(title, url)) }
+                            )
+
+                            is Screen.Settings -> SettingsScreen(
+                                strings = strings,
+                                contentPadding = contentPadding,
+                                currentLanguage = language,
+                                onSetLanguage = { language = it },
+                                onClose = { pop() }
+                            )
+
+                            is Screen.Tutorial -> TutorialScreen(
+                                strings = strings,
+                                contentPadding = contentPadding,
+                                onClose = { pop() }
+                            )
+
+                            is Screen.FullImage -> FullImageScreen(
+                                title = s.title,
+                                url = s.url,
+                                strings = strings,
+                                onClose = { pop() }
+                            )
                         }
                     }
                 }
             }
         }
     }
-}
-
-private enum class Screen { Now, Graphs }
-
-/** Earth graphs (24h) built from ViewModel state. */
-private fun buildGraphSeries(vm: SpaceWeatherViewModel): List<GraphSeries> {
-    val s = vm.state
-
-    fun <T> minMax(values: List<Double>, fallbackMin: Double, fallbackMax: Double): Pair<Double, Double> {
-        if (values.isEmpty()) return fallbackMin to fallbackMax
-        val mn = values.minOrNull() ?: fallbackMin
-        val mx = values.maxOrNull() ?: fallbackMax
-        // чуть расширяем, чтобы линия не упиралась в рамки
-        val pad = (mx - mn).coerceAtLeast(1.0) * 0.08
-        return (mn - pad) to (mx + pad)
-    }
-
-    val kpVals = s.kpSeries24h.map { it.value }
-    val spVals = s.speedSeries24h.map { it.value }
-    val bzVals = s.bzSeries24h.map { it.value }
-
-    val (kpMin, kpMax) = minMax(kpVals, 0.0, 9.0)
-    val (spMin, spMax) = minMax(spVals, 250.0, 1200.0)
-    val (bzMin, bzMax) = minMax(bzVals, -20.0, 20.0)
-
-    return listOf(
-        GraphSeries(
-            title = "Kp",
-            unit = "",
-            points = s.kpSeries24h,
-            minY = max(0.0, kpMin),
-            maxY = min(9.0, kpMax),
-            gridStepY = 1.0,
-            dangerAbove = 5.0
-        ),
-        GraphSeries(
-            title = "Speed",
-            unit = "км/с",
-            points = s.speedSeries24h,
-            minY = spMin,
-            maxY = spMax,
-            gridStepY = 100.0,
-            dangerAbove = 600.0
-        ),
-        GraphSeries(
-            title = "Bz",
-            unit = "нТл",
-            points = s.bzSeries24h,
-            minY = bzMin,
-            maxY = bzMax,
-            gridStepY = 2.0,
-            dangerBelow = -2.0
-        )
-    )
 }
