@@ -3,74 +3,92 @@ package com.example.wittyapp.ui.strings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 
-enum class AppLanguage { RU, EN }
-
 data class AppStrings(
+    val appTitle: String,
+
     val now: String,
+    val graphs: String,
+    val events: String,
+    val sun: String,
+    val earth: String,
+
     val close: String,
     val loadingData: String,
+    val pressBackAgainToExit: String,
 
-    // screens
-    val events: String,
-    val settingsTitle: String,
+    val graphs24hTitle: String,
+
     val tutorialTitle: String,
 
-    // settings
+    val settingsTitle: String,
     val language: String,
     val about: String,
     val aboutText: String,
 
-    // sun tabs
     val sunTabCme: String,
     val sunTabSunspots: String,
     val sunTabAuroraOval: String,
-
-    // misc
     val tapToFull: String
 )
 
 @Composable
-fun rememberAppStrings(lang: AppLanguage): AppStrings {
-    return remember(lang) {
-        when (lang) {
+fun rememberAppStrings(language: AppLanguage): AppStrings {
+    return remember(language) {
+        when (language) {
             AppLanguage.RU -> AppStrings(
-                now = "Сейчас",
-                close = "Закрыть",
-                loadingData = "Загрузка данных...",
+                appTitle = "WittyApp",
 
+                now = "Сейчас",
+                graphs = "Графики",
                 events = "События",
-                settingsTitle = "Настройки",
+                sun = "Солнце",
+                earth = "Земля",
+
+                close = "Закрыть",
+                loadingData = "Загружаю данные…",
+                pressBackAgainToExit = "Нажми Back ещё раз для выхода",
+
+                graphs24hTitle = "Графики за 24 часа",
+
                 tutorialTitle = "Обучение",
 
+                settingsTitle = "Настройки",
                 language = "Язык",
                 about = "О приложении",
-                aboutText = "Приложение для отслеживания космической погоды и оценки вероятности сияний. Данные берутся из открытых источников и обновляются автоматически.",
+                aboutText = "Приложение помогает оценить геомагнитную активность и вероятность сияний по данным космической погоды.",
 
-                sunTabCme = "CME (корона)",
+                sunTabCme = "CME / Halo",
                 sunTabSunspots = "Пятна",
-                sunTabAuroraOval = "Овал сияний",
-
-                tapToFull = "Нажми, чтобы открыть на весь экран"
+                sunTabAuroraOval = "Овал",
+                tapToFull = "Нажми для полного экрана"
             )
 
             AppLanguage.EN -> AppStrings(
-                now = "Now",
-                close = "Close",
-                loadingData = "Loading data...",
+                appTitle = "WittyApp",
 
+                now = "Now",
+                graphs = "Graphs",
                 events = "Events",
-                settingsTitle = "Settings",
+                sun = "Sun",
+                earth = "Earth",
+
+                close = "Close",
+                loadingData = "Loading data…",
+                pressBackAgainToExit = "Press Back again to exit",
+
+                graphs24hTitle = "Graphs (24h)",
+
                 tutorialTitle = "Tutorial",
 
+                settingsTitle = "Settings",
                 language = "Language",
                 about = "About",
-                aboutText = "Space weather dashboard with aurora probability hints. Data comes from public sources and refreshes automatically.",
+                aboutText = "Helps estimate geomagnetic activity and aurora probability using space weather data.",
 
-                sunTabCme = "CME (corona)",
+                sunTabCme = "CME / Halo",
                 sunTabSunspots = "Sunspots",
                 sunTabAuroraOval = "Aurora oval",
-
-                tapToFull = "Tap to open fullscreen"
+                tapToFull = "Tap to open full"
             )
         }
     }
