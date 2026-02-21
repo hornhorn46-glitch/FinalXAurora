@@ -1,6 +1,7 @@
 package com.example.wittyapp
 
 import android.os.Bundle
+import android.os.Process
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.*
@@ -17,7 +18,6 @@ import com.example.wittyapp.ui.screens.NowScreen
 import com.example.wittyapp.ui.strings.AppLanguage
 import com.example.wittyapp.ui.strings.rememberAppStrings
 import com.example.wittyapp.ui.theme.CosmosTheme
-import kotlin.system.exitProcess
 
 class MainActivity : ComponentActivity() {
 
@@ -26,9 +26,9 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-
+        // ставим хендлер максимально рано
         installCrashHandler()
+        super.onCreate(savedInstanceState)
 
         val lastCrash = crashPrefs.getString(KEY_CRASH, null)
 
@@ -37,8 +37,7 @@ class MainActivity : ComponentActivity() {
                 CrashScreen(
                     crashText = lastCrash,
                     onClear = {
-                        crashPrefs.edit().remove(KEY_CRASH).apply()
-                        // пересоздаём активити
+                        crashPrefs.edit().remove(KEY_CRASH).commit()
                         recreate()
                     }
                 )
@@ -49,8 +48,6 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun installCrashHandler() {
-        val previous = Thread.getDefaultUncaughtExceptionHandler()
-
         Thread.setDefaultUncaughtExceptionHandler { t, e ->
             try {
                 val text = buildString {
@@ -60,14 +57,13 @@ class MainActivity : ComponentActivity() {
                     appendLine()
                     appendLine(e.stackTraceToString())
                 }
-                crashPrefs.edit().putString(KEY_CRASH, text).apply()
+                // ВАЖНО: commit() синхронный — успевает записать перед убийством процесса
+                crashPrefs.edit().putString(KEY_CRASH, text).commit()
             } catch (_: Throwable) {
-                // если даже запись упала — ничего
+                // ничего
             } finally {
-                // отдаем дальше (на всякий)
-                previous?.uncaughtException(t, e)
-                // и гарантированно завершаем процесс
-                exitProcess(10)
+                // гарантированно завершаем процесс уже после commit()
+                Process.killProcess(Process.myPid())
             }
         }
     }
@@ -83,7 +79,6 @@ class MainActivity : ComponentActivity() {
 
         CosmosTheme(auroraScore = vm.state.auroraScore) {
             Scaffold { padding ->
-                // пока запускаем только Earth/Now, чтобы локализовать крэш
                 NowScreen(
                     vm = vm,
                     mode = AppMode.EARTH,
@@ -116,9 +111,7 @@ private fun CrashScreen(
                 Text("CRASH REPORT", style = MaterialTheme.typography.headlineMedium)
                 Spacer(Modifier.height(12.dp))
 
-                Button(onClick = onClear) {
-                    Text("Очистить и запустить")
-                }
+                Button(onClick = onClear) { Text("Очистить и запустить") }
 
                 Spacer(Modifier.height(12.dp))
 
