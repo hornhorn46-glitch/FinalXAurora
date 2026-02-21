@@ -29,10 +29,13 @@ data class GraphSeries(
     val dangerAbove: Double? = null
 )
 
+enum class GraphsMode { EARTH, SUN }
+
 @Composable
 fun GraphsScreen(
     title: String,
     series: List<GraphSeries>,
+    mode: GraphsMode,
     strings: AppStrings,
     onClose: () -> Unit
 ) {
@@ -73,7 +76,7 @@ private fun GraphCanvas(series: GraphSeries) {
     val lineColor = MaterialTheme.colorScheme.primary
     val dangerColor = Color.Red.copy(alpha = 0.20f)
 
-    val timeFmt = DateTimeFormatter.ofPattern("HH:mm").withZone(ZoneId.systemDefault())
+    val timeFmt = rememberTimeFormatter()
 
     Canvas(
         modifier = Modifier
@@ -97,9 +100,9 @@ private fun GraphCanvas(series: GraphSeries) {
         }
 
         fun y(v: Double): Float {
-            val denom = (series.maxY - series.minY)
-            val t = if (denom == 0.0) 0.5f else ((v - series.minY) / denom).toFloat().coerceIn(0f, 1f)
-            return topPad + (1f - t) * plotH
+            val den = (series.maxY - series.minY)
+            val t = if (den == 0.0) 0.5f else ((v - series.minY) / den).toFloat()
+            return topPad + (1f - t.coerceIn(0f, 1f)) * plotH
         }
 
         // Danger zones
@@ -120,7 +123,7 @@ private fun GraphCanvas(series: GraphSeries) {
             )
         }
 
-        // Horizontal grid
+        // Horizontal grid + Y labels positions
         var gy = series.minY
         while (gy <= series.maxY + 1e-9) {
             val yy = y(gy)
@@ -128,7 +131,7 @@ private fun GraphCanvas(series: GraphSeries) {
             gy += series.gridStepY
         }
 
-        // Vertical grid (6 линий)
+        // Vertical grid (6 lines)
         val vLines = 6
         for (i in 0..vLines) {
             val xx = leftPad + (i.toFloat() / vLines.toFloat()) * plotW
@@ -146,14 +149,14 @@ private fun GraphCanvas(series: GraphSeries) {
                 val p1 = series.points[i + 1]
                 drawLine(
                     lineColor,
-                    Offset(x(i), y(p0.v)),
-                    Offset(x(i + 1), y(p1.v)),
+                    Offset(x(i), y(p0.value)),
+                    Offset(x(i + 1), y(p1.value)),
                     strokeWidth = 3f
                 )
             }
         }
 
-        // Labels
+        // Labels (native canvas)
         drawIntoCanvas { canvas ->
             val paint = android.graphics.Paint().apply {
                 isAntiAlias = true
@@ -161,6 +164,7 @@ private fun GraphCanvas(series: GraphSeries) {
                 textSize = 24f
             }
 
+            // Y labels (min/mid/max)
             fun drawYLabel(v: Double) {
                 val yy = y(v)
                 val txt = v.roundToInt().toString()
@@ -171,16 +175,26 @@ private fun GraphCanvas(series: GraphSeries) {
             drawYLabel((series.minY + series.maxY) / 2.0)
             drawYLabel(series.maxY)
 
+            // X labels: first / mid / last
             if (series.points.isNotEmpty()) {
                 paint.textSize = 22f
-                val first = timeFmt.format(series.points.first().t)
-                val mid = timeFmt.format(series.points[series.points.size / 2].t)
-                val last = timeFmt.format(series.points.last().t)
+                val first = timeFmt(series.points.first())
+                val mid = timeFmt(series.points[series.points.size / 2])
+                val last = timeFmt(series.points.last())
 
                 canvas.nativeCanvas.drawText(first, leftPad, h - 6f, paint)
                 canvas.nativeCanvas.drawText(mid, leftPad + plotW * 0.45f, h - 6f, paint)
                 canvas.nativeCanvas.drawText(last, leftPad + plotW * 0.82f, h - 6f, paint)
             }
         }
+    }
+}
+
+@Composable
+private fun rememberTimeFormatter(): (GraphPoint) -> String {
+    val fmt = remember { DateTimeFormatter.ofPattern("HH:mm") }
+    val zone = remember { ZoneId.systemDefault() }
+    return remember {
+        { p: GraphPoint -> p.t.atZone(zone).toLocalTime().format(fmt) }
     }
 }
