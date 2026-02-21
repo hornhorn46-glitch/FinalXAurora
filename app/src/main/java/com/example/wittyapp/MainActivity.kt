@@ -3,12 +3,17 @@ package com.example.wittyapp
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
+import androidx.compose.runtime.remember
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.wittyapp.net.SpaceWeatherApi
 import com.example.wittyapp.ui.SpaceWeatherViewModel
 import com.example.wittyapp.ui.screens.NowScreen
+import com.example.wittyapp.ui.strings.Language
+import com.example.wittyapp.ui.strings.rememberAppStrings
 import com.example.wittyapp.ui.theme.CosmosTheme
 
 class MainActivity : ComponentActivity() {
@@ -17,20 +22,22 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
 
         setContent {
+            val api = remember { SpaceWeatherApi() }
+            val strings = rememberAppStrings(Language.RU)
 
-            CosmosTheme(auroraScore = 0) {
+            val vm: SpaceWeatherViewModel = viewModel(
+                factory = SpaceWeatherViewModelFactory(api)
+            )
 
-                Surface(
-                    color = MaterialTheme.colorScheme.background
-                ) {
-
-                    val vm: SpaceWeatherViewModel = viewModel(
-                        factory = SpaceWeatherViewModelFactory()
-                    )
-
+            CosmosTheme(mode = AppMode.EARTH, auroraScore = vm.state.auroraScore) {
+                Surface(color = MaterialTheme.colorScheme.background) {
                     NowScreen(
-                        state = vm.state,
-                        onRefresh = { vm.refresh() }
+                        vm = vm,
+                        mode = AppMode.EARTH,
+                        strings = strings,
+                        contentPadding = PaddingValues(0.dp),
+                        onOpenGraphs = {},
+                        onOpenEvents = {}
                     )
                 }
             }
