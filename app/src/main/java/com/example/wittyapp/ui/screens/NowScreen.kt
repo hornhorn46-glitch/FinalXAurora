@@ -48,13 +48,13 @@ fun NowScreen(
     onOpenEvents: () -> Unit
 ) {
     val state = vm.state
+
     LaunchedEffect(Unit) {
         vm.refresh()
         vm.startAutoRefresh(10 * 60 * 1000L)
     }
 
     var help by remember { mutableStateOf<HelpTopic?>(null) }
-
     val bgRes = if (mode == AppMode.EARTH) R.drawable.earth_bg else R.drawable.sun_bg
 
     Box(Modifier.fillMaxSize()) {
@@ -62,8 +62,7 @@ fun NowScreen(
             painter = painterResource(bgRes),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
-            contentScale = ContentScale.Crop,
-            alpha = 1.0f
+            contentScale = ContentScale.Crop
         )
         Canvas(Modifier.fillMaxSize()) { drawRect(Color(0x70000000)) }
 
@@ -86,10 +85,8 @@ fun NowScreen(
                 onEvents = onOpenEvents
             )
 
-            if (state.error != null) {
-                GlassCard {
-                    Text(state.error, color = Color.White)
-                }
+            state.error?.let { err ->
+                GlassCard { Text(err, color = Color.White) }
             }
 
             GlassCard {
@@ -226,11 +223,7 @@ private fun TopRow(
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
         Column {
             Text(title, style = MaterialTheme.typography.headlineMedium, color = Color.White)
-            Text(
-                "обновлено: $updatedAt",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color.White.copy(alpha = 0.80f)
-            )
+            Text("обновлено: $updatedAt", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.80f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             IconButton(onClick = onGraphs) { Icon(Icons.Default.ShowChart, null, tint = Color.White) }
@@ -254,7 +247,6 @@ private fun LoadingToastSheet(visible: Boolean, text: String) {
     }
 }
 
-// снег: 66.7% от прошлого (делаем 94 частиц)
 @Composable
 private fun SnowLayerWithWindReduced() {
     val particles = remember {
@@ -277,7 +269,6 @@ private fun SnowLayerWithWindReduced() {
             label = "snowT"
         )
 
-    // периодический "ветерок"
     val wind by rememberInfiniteTransition(label = "wind")
         .animateFloat(
             initialValue = -1f,
@@ -299,9 +290,7 @@ private fun SnowLayerWithWindReduced() {
     }
 }
 
-private data class SnowParticle(
-    val x: Float, val y: Float, val r: Float, val speedY: Float, val drift: Float
-)
+private data class SnowParticle(val x: Float, val y: Float, val r: Float, val speedY: Float, val drift: Float)
 
 private fun formatUpdatedAt(i: Instant): String {
     val z = ZoneId.systemDefault()
@@ -316,29 +305,17 @@ private enum class HelpTopic { OVERVIEW, KP, SPEED, BZ, DENSITY, BFIELD }
 private fun HelpDialog(topic: HelpTopic, onClose: () -> Unit) {
     val (title, text) = when (topic) {
         HelpTopic.OVERVIEW -> "Как читать показатели" to
-            "Смотри на три вещи: Kp (итоговая активность), Speed (скорость ветра) и Bz.
-" +
-            "Если Bz отрицательный (вниз) и скорость высокая — шанс активности растёт."
+            "Смотри на Kp, Speed и Bz.\nЕсли Bz отрицательный и скорость высокая — вероятность активности растёт."
         HelpTopic.KP -> "Kp" to
-            "Kp — индекс геомагнитной активности (0–9).
-" +
-            "5+ — заметные возмущения, 7+ — сильные."
+            "Kp — индекс геомагнитной активности (0–9).\n5+ — заметные возмущения.\n7+ — сильные бури."
         HelpTopic.SPEED -> "Speed" to
-            "Скорость солнечного ветра.
-" +
-            "600+ км/с — часто усиливает эффект на Земле."
+            "Скорость солнечного ветра.\n600+ км/с часто усиливает эффект."
         HelpTopic.BZ -> "Bz" to
-            "Компонента магнитного поля межпланетного поля.
-" +
-            "Отрицательный Bz (вниз) — лучше для сияний/бурь."
+            "Компонента магнитного поля.\nОтрицательный Bz (вниз) — благоприятно для сияний."
         HelpTopic.DENSITY -> "Плотность" to
-            "Плотность плазмы.
-" +
-            "Резкие всплески могут усиливать воздействие."
+            "Плотность плазмы.\nРезкие всплески усиливают воздействие."
         HelpTopic.BFIELD -> "Компас Bx/Bz" to
-            "Стрелка показывает направление (Bx,Bz).
-" +
-            "Сектора вокруг «вниз» показывают насколько направление благоприятно."
+            "Стрелка показывает направление (Bx,Bz).\nСектора вокруг «вниз» — зона максимального влияния."
     }
 
     AlertDialog(
@@ -351,10 +328,10 @@ private fun HelpDialog(topic: HelpTopic, onClose: () -> Unit) {
 
 @Composable
 private fun BFieldCompass(bx: Float, bz: Float) {
-    // угол по двум осям: вверх при Bz>0, вниз при Bz<0, вправо при Bx>0
-    val angle = Math.toDegrees(atan2(bz.toDouble(), bx.toDouble())).toFloat() // -180..180, 0 = вправо
-    // преобразуем так, чтобы 90 = вверх, -90 = вниз
-    val displayAngle = angle
+    val primary = MaterialTheme.colorScheme.primary // ✅ берём ДО Canvas
+
+    val angleMathDeg = Math.toDegrees(atan2(bz.toDouble(), bx.toDouble())).toFloat()
+    val canvasDeg = 90f - angleMathDeg
 
     Canvas(Modifier.fillMaxWidth().height(220.dp)) {
         val w = size.width
@@ -362,8 +339,6 @@ private fun BFieldCompass(bx: Float, bz: Float) {
         val c = Offset(w / 2f, h / 2f)
         val r = min(w, h) * 0.38f
 
-        // сектора вокруг "вниз" (270°). В координатах Canvas 0° вправо, 90° вниз, 180° влево, 270° вверх
-        // Нам проще рисовать математически: сделаем целевую точку "вниз" = 90° в canvas.
         val downCanvasDeg = 90f
 
         fun sector(deg: Float, color: Color) {
@@ -383,22 +358,18 @@ private fun BFieldCompass(bx: Float, bz: Float) {
         sector(20f, Color(0xFFFFB74D))
         sector(5f, Color(0xFFFF5252))
 
-        // окружность
         drawCircle(Color.White.copy(alpha = 0.20f), radius = r, center = c, style = Stroke(6f))
         drawCircle(Color.White.copy(alpha = 0.08f), radius = r * 0.82f, center = c, style = Stroke(2f))
 
-        // стрелка: преобразуем math angle (atan2(bz,bx) где 0 вправо, 90 вверх) к canvas (0 вправо, 90 вниз)
-        val mathDeg = displayAngle
-        val canvasDeg = 90f - mathDeg
         val a = Math.toRadians(canvasDeg.toDouble())
         val p = Offset(c.x + cos(a).toFloat() * (r * 0.92f), c.y + sin(a).toFloat() * (r * 0.92f))
+
         val col = when {
-            // близко к "вниз": canvasDeg близко 90
             angleDiff(canvasDeg, downCanvasDeg) <= 5f -> Color(0xFFFF5252)
             angleDiff(canvasDeg, downCanvasDeg) <= 20f -> Color(0xFFFFB74D)
             angleDiff(canvasDeg, downCanvasDeg) <= 40f -> Color(0xFFFFFF66)
             angleDiff(canvasDeg, downCanvasDeg) <= 65f -> Color(0xFF66FF66)
-            else -> MaterialTheme.colorScheme.primary
+            else -> primary
         }
 
         drawLine(Color.Black.copy(alpha = 0.28f), c + Offset(2f, 2f), p + Offset(2f, 2f), strokeWidth = 10f, cap = StrokeCap.Round)
