@@ -1,18 +1,35 @@
 package com.example.wittyapp.ui.settings
 
 import android.content.Context
-import com.example.wittyapp.ui.strings.AppLanguage
+import android.content.SharedPreferences
+import com.example.wittyapp.AppMode
+import com.example.wittyapp.ui.strings.Language
 
 class SettingsStore(context: Context) {
 
-    private val prefs = context.getSharedPreferences("witty_settings", Context.MODE_PRIVATE)
+    private val prefs: SharedPreferences =
+        context.getSharedPreferences("witty_settings", Context.MODE_PRIVATE)
 
-    fun getLanguage(): AppLanguage {
-        val raw = prefs.getString("lang", AppLanguage.RU.name) ?: AppLanguage.RU.name
-        return runCatching { AppLanguage.valueOf(raw) }.getOrDefault(AppLanguage.RU)
+    fun loadMode(): AppMode {
+        val raw = prefs.getString(KEY_MODE, AppMode.EARTH.name) ?: AppMode.EARTH.name
+        return runCatching { AppMode.valueOf(raw) }.getOrElse { AppMode.EARTH }
     }
 
-    fun setLanguage(lang: AppLanguage) {
-        prefs.edit().putString("lang", lang.name).apply()
+    fun saveMode(mode: AppMode) {
+        prefs.edit().putString(KEY_MODE, mode.name).apply()
+    }
+
+    fun loadLanguage(): Language {
+        val raw = prefs.getString(KEY_LANG, Language.RU.code) ?: Language.RU.code
+        return Language.fromCode(raw)
+    }
+
+    fun saveLanguage(language: Language) {
+        prefs.edit().putString(KEY_LANG, language.code).apply()
+    }
+
+    companion object {
+        private const val KEY_MODE = "mode"
+        private const val KEY_LANG = "lang"
     }
 }
