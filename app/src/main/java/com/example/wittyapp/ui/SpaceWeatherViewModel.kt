@@ -41,7 +41,6 @@ class SpaceWeatherViewModel(
     private val api: SpaceWeatherApi
 ) : ViewModel() {
 
-    /** Compose-observable state (fixes “data appears only after reopening screen”). */
     var state: SpaceWeatherUiState by mutableStateOf(SpaceWeatherUiState())
         private set
 
@@ -97,9 +96,11 @@ class SpaceWeatherViewModel(
                     densityNow = windNow?.density,
                     bxNow = magNow?.bx,
                     bzNow = magNow?.bz,
+
                     auroraScore = pred.score,
                     auroraTitle = pred.title,
                     auroraDetails = pred.details,
+
                     kpSeries24h = kp24,
                     speedSeries24h = sp24,
                     bzSeries24h = bz24
@@ -109,22 +110,6 @@ class SpaceWeatherViewModel(
             }
         }
     }
-
-    /** Preferred API (used in current UI). */
-    fun simpleGraphSeries(): GraphSeries = GraphSeries(
-        kp = state.kpSeries24h,
-        bz = state.bzSeries24h,
-        speed = state.speedSeries24h
-    )
-
-    /** Backward-compat alias for older MainActivity versions. */
-    fun buildGraphSeries(): GraphSeries = simpleGraphSeries()
 }
-
-data class GraphSeries(
-    val kp: List<GraphPoint>,
-    val bz: List<GraphPoint>,
-    val speed: List<GraphPoint>
-)
 
 private fun List<Double>.averageOrNull(): Double? = if (isEmpty()) null else average()
