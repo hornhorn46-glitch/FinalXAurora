@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.Wittyapp" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- можно оставить пустым -->
+    </style>
+</resources>
