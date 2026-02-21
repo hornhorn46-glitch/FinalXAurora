@@ -11,6 +11,9 @@ class SpaceWeatherViewModelFactory(
 
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
-        return SpaceWeatherViewModel(api) as T
+        if (modelClass.isAssignableFrom(SpaceWeatherViewModel::class.java)) {
+            return SpaceWeatherViewModel(api) as T
+        }
+        throw IllegalArgumentException("Unknown ViewModel class: ${modelClass.name}")
     }
 }
